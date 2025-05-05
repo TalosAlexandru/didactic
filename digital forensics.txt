@@ -1,0 +1,47 @@
+Popular tools for disk and memory image acquisition and analysis of the windows operating system
+
+FTK Imager - acquisition and analysis
+Autopsy - digital forensics platform
+DumpIt - taking a memory image
+Volatility - analyzing memory images
+
+
+pdfinfo - display various metadata related to a PDF file (sudo apt-get install poppler-utils)
+exiftool - used to read and write metadata in various file types (sudo apt-get install libimage-exiftool-perl)
+
+See logs in Windows OS - Event Viewer
+Crucial events ID on windows
+
+4624 - a user account successfully logged in
+4625 - a user account failed to login
+4634 - a user account successfully logged off
+4720 - a user account was created
+4724 - an attempt was made to reset an account's password
+4722 - a user account was enabled
+4725 - a user account was disabled
+4726 - a user account was deleted
+
+log file on an apache server: /var/log/apache2/access.log
+
+See logs in Linux OS:
+>/var/log/httpd - http req/res and error logs
+>/var/log/cron - cron jobs
+>/var/log/auth.log, /var/log/secure - authentication related logs
+>/var/log/kern - kernel related events
+>/var/log/apache
+
+
+firewalls:
+Windows OS> Windows Defender Firewall
+Linux> Netfilter, ufw (sudo ufw status, enable, default allow outgoing, deny 22/tcp, status numbered, delete 2,)
+
+SNORT (IDS)
+ls /etc/snort
+
+Rule creation> sudo nano /etc/snort/rules/local.rules
+alert icmp any any -> 127.0.0.1 any (msg:"Lopback Ping Detected"; sid:10003; rev:1;)
+
+Rule Testing>sudo snort -q -l /var/log/snort -i lo -A console -c /etc/snort/snort.conf
+ping 127.0.0.1
+
+Running snort on PCAP files> sudo snort -q -l /var/log/snort -r file.pcap -A console -c /etc/snort/snort.conf

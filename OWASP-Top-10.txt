@@ -1,0 +1,34 @@
+Cryptographic failures
+
+Query a flat-file database
+
+sqlite3 <database-name>
+.tables
+PRAGMA table_info(customers);
+SELECT * FROM customers;
+
+Injection
+
+prevent injection>
+	using an allow list - inputul transmis spre server este comparat cu o listă de inputuri considerate sigure, 	iar dacă acesta e marcat ca sigur, este procesat, altfel este rejectat si este emis un mesaj de eroare
+	stripping input - în cazul în care inputul conține caractere periculoase, acestea sunt șterse înainte de 	procesare
+
+command injection
+
+view linux version - cat /etc/os-release
+user's shell set - cat /etc/passwd
+how many non-root/non-service/non-daemon are there - ls /home
+
+Security Misconfiguration - HTTP Headers, unnecessary features enabled, no pass changed
+
+Werkzeug console IP:PORT/console
+import os; print(os.popen("ls -l").read())
+
+WordPress version 4.6
+Exploit-DB; WPScan
+
+Identification and Authentication
+
+"admin" - " admin" on register - have same rights
+
+

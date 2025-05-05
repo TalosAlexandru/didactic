@@ -1,0 +1,14 @@
+Tool for catching reverse shells!!!
+
+msfconsole
+use multi/handler
+
+options
+set PAYLOAD <payload>
+set LHOST <listen.IP>
+set LPORT <listen.port>
+
+exploit -j (launch the module, running as a job in the background)
+
+session <nr> - to foreground a session
+sessions - se all active sessions

