@@ -1,0 +1,23 @@
+Commonly tools used to identofy privilege escalation vectors
+
+1. WinPEAS - need to be uploaded on the target machine
+winpeas.exe > outputfile.txt
+can be downloaded - https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS
+
+
+2. PrivescCheck
+https://github.com/itm4n/PrivescCheck
+to run this on the target machine you need to bypass the SEP
+	Set-ExecutionPolicy Bypass -Scope Process -Force
+	..\PrivescCheck.ps1
+	Invoke-PrivescCheck
+
+
+3. WES-NG: Windows Exploit Suggester - Next Generation - run on your attacking machine
+https://github.com/bitsadmin/wesng
+Before using it (wes.py --update)
+on the target machine, you need to run systeminfo command
+on the attacking machine: wes.py systeminfo.txt
+
+
+4. Metasploit - multi/recon/local_exploit_suggester

